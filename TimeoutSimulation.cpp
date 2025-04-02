@@ -82,21 +82,19 @@ vector<bool> generatePersonInside(vector<int> movementData, int personEntryTime)
 // When motion no longer detected (movementData = 0), start counting (fixedTimeoutValue)
 // Turn light off when fixedTimeoutValue is reached
 vector<int> fixedTimeout(vector<int> movementData, const vector<bool>& personInside) {
-    vector<int> fixedLightState(dataSize, 0); // initialize to 0
-    int timeElapsed = 0;
+    vector<int> fixedLightState(dataSize, 0); // initialize to off
+    int timeElapsed = fixedTimeoutValue; // smart at fixedTimeoutValue so light does not start on
 
     for (int i = 0; i < dataSize; i++) {
-        if (personInside[i]) { // if a person is inside
-            if (movementData[i] == 1) { // and motion is detected
+        if (movementData[i] == 1) { // if motion detected
+            fixedLightState[i] = 1; // turn light on
+            timeElapsed = 0; // clear the timer
+        } else { // if no motion
+            timeElapsed += simulationInterval; // increment the timer
+            if (timeElapsed < fixedTimeoutValue) { // if not expired, keep light on
                 fixedLightState[i] = 1;
-                timeElapsed = 0; // reset the timeout counter
-            } else { // if person is inside but no motion detected
-                timeElapsed += simulationInterval;
-                if (timeElapsed >= fixedTimeoutValue) { // if timeout reached, turn light off
-                    fixedLightState[i] = 0;
-                } else { // if timeout not reached, keep light on
-                    fixedLightState[i] = 1;
-                }
+            } else { // timeout expired
+                fixedLightState[i] = 0;
             }
         }
     }
@@ -108,18 +106,18 @@ vector<int> fixedTimeout(vector<int> movementData, const vector<bool>& personIns
 // If motion is detected, increment adaptiveTimeoutValue
 // Turn light off when adaptiveTimeoutValue is reached
 vector<int> adaptiveTimeout(vector<int> movementData) {
-    vector<int> adaptiveLightState(movementData.size(), 0); // Light state (0 = off, 1 = on)
-    int countDown = 0; // Light starts OFF
+    vector<int> adaptiveLightState(dataSize, 0); // initialize to off
+    int countDown = 0; // start at 0 then count up
 
-    for (size_t i = 0; i < movementData.size(); i++) {
-        if (movementData[i] == 1) { 
-            adaptiveLightState[i] = 1;
-            countDown = min(countDown + simulationInterval, maxAdaptiveTimeoutValue); 
+    for (int i = 0; i < dataSize; i++) {
+        if (movementData[i] == 1) { // if movement
+            adaptiveLightState[i] = 1; // turn light on
+            countDown = min(countDown + simulationInterval, maxAdaptiveTimeoutValue); // increment countdown, but do not exceed maxAdaptiveTimeoutValue
             if (countDown == simulationInterval) { 
                 countDown = adaptiveTimeoutValue; // reset to base timeout when first motion is detected
             }
         } else { 
-            if (countDown > 0) {
+            if (countDown > 0) { // as long as there is still time left in the countdown, decrement
                 countDown -= simulationInterval;
             }
 
@@ -130,14 +128,14 @@ vector<int> adaptiveTimeout(vector<int> movementData) {
     return adaptiveLightState;
 }
 
-// Get statistics based on figures of merit, write to CSV file, and print to console
+// Get statistics based on figures of merit
 void getStats(vector<int> fixedLightState, vector<int> adaptiveLightState, vector<int> movementData, vector<bool> personInside, double probability) {
     int fixedLightOn = 0;
     int adaptiveLightOn = 0;
     int fixedLightOff = 0;
     int adaptiveLightOff = 0;
-    int fixedFlaw = 0;
-    int adaptiveflaw = 0;
+    int fixedFalseNegatives = 0;
+    int adaptiveFalseNegatives = 0;
 
     for (int i = 0; i < dataSize; i++) {
 
@@ -156,10 +154,10 @@ void getStats(vector<int> fixedLightState, vector<int> adaptiveLightState, vecto
 
         // false negatives
         if (fixedLightState[i] == 0 && personInside[i]) { // light turned off while person is inside
-            fixedFlaw++;
+            fixedFalseNegatives++;
         }
         else if (adaptiveLightState[i] == 0 && personInside[i]) { // light turned off while person is inside
-            adaptiveflaw++;
+            adaptiveFalseNegatives++;
         }
     
     }
@@ -169,13 +167,13 @@ void getStats(vector<int> fixedLightState, vector<int> adaptiveLightState, vecto
 
     cout << "The light was on " << static_cast<double>(fixedLightOn*100/dataSize) << "% of the time" << endl;
     cout << "The light was off " << static_cast<double>(fixedLightOff*100/dataSize) << "% of the time" << endl;
-    cout << "The light turned off while the person was inside the room " << fixedFlaw << " times" << endl;
+    cout << "The light turned off while the person was inside the room " << fixedFalseNegatives << " times" << endl;
 
     cout << endl << "===== ADAPTIVE TIMEOUT STATISTICS =====" << endl;
 
     cout << "The light was on " << static_cast<double>(adaptiveLightOn*100/dataSize) << "% of the time" << endl;
     cout << "The light was off " << static_cast<double>(adaptiveLightOff*100/dataSize) << "% of the time" << endl;
-    cout << "The light turned off while the person was inside the room " << adaptiveflaw << " times" << endl << endl;
+    cout << "The light turned off while the person was inside the room " << adaptiveFalseNegatives << " times" << endl << endl;
 }
 
 
